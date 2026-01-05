@@ -1,18 +1,18 @@
 using UnityEngine;
-using TMPro; // WAJIB ADA untuk akses TextMeshPro
-using System.Collections; // WAJIB ADA untuk Coroutine
+using TMPro;
+using System.Collections;
 
 public class NPCInteraction : MonoBehaviour
 {
     [Header("UI Components")]
-    public GameObject interactionPanel; // Panel UI "Press E" (yang lama)
-    public GameObject dialogPanel;      // Panel UI baru untuk teks dialog (Opsional, bisa sama)
-    public TextMeshProUGUI dialogText;  // Komponen Text TMP untuk dialog
+    public GameObject interactionPanel; 
+    public GameObject dialogPanel;      
+    public TextMeshProUGUI dialogText;  
 
     [Header("Dialog Settings")]
-    [TextArea(3, 10)] // Membuat area ketik di inspector jadi lega
-    public string[] sentences; // Array untuk menyimpan kalimat dialog
-    public float typingSpeed = 0.05f; // Kecepatan ketik (makin kecil makin cepat)
+    [TextArea(3, 10)]
+    public string[] sentences; 
+    public float typingSpeed = 0.05f; 
 
     private bool isPlayerInRange = false;
     private bool isTalking = false;
@@ -21,7 +21,7 @@ public class NPCInteraction : MonoBehaviour
 
     void Start()
     {
-        // Pastikan semua UI mati di awal
+        // Standar Arsitektur: Pastikan state awal bersih
         if (interactionPanel != null) interactionPanel.SetActive(false);
         if (dialogPanel != null) dialogPanel.SetActive(false);
     }
@@ -43,34 +43,36 @@ public class NPCInteraction : MonoBehaviour
 
     void StartDialog()
     {
+        // SAFETY CHECK: Cegah IndexOutOfRangeException
+        if (sentences == null || sentences.Length == 0)
+        {
+            Debug.LogError("KING, Anda lupa mengisi Sentences di Inspector NPC!");
+            return;
+        }
+
         isTalking = true;
-        interactionPanel.SetActive(false); // Sembunyikan prompt "Press E"
-        dialogPanel.SetActive(true); // Munculkan panel dialog
+        if (interactionPanel != null) interactionPanel.SetActive(false);
+        if (dialogPanel != null) dialogPanel.SetActive(true);
+        
         currentSentenceIndex = 0;
         
-        // Mulai mengetik kalimat pertama
+        if (typingCoroutine != null) StopCoroutine(typingCoroutine);
         typingCoroutine = StartCoroutine(TypeSentence(sentences[currentSentenceIndex]));
-        
-        // [OPSIONAL] Beritahu script AI untuk berhenti bergerak
-        // GetComponent<NPCWanderAI>()?.SetTalkingState(true);
     }
 
-    // --- INI INTI DARI TYPEWRITER EFFECT ---
     IEnumerator TypeSentence(string sentence)
     {
-        dialogText.text = ""; // Kosongkan teks dulu
+        dialogText.text = ""; 
         foreach (char letter in sentence.ToCharArray())
         {
-            dialogText.text += letter; // Tambahkan 1 huruf
-            yield return new WaitForSeconds(typingSpeed); // Tunggu sebentar
+            dialogText.text += letter; 
+            yield return new WaitForSeconds(typingSpeed); 
         }
-        typingCoroutine = null; // Tandai bahwa mengetik sudah selesai
+        typingCoroutine = null; 
     }
-    // ---------------------------------------
 
     void NextSentence()
     {
-        // Jika sedang mengetik, selesaikan langsung kalimatnya (fitur skip)
         if (typingCoroutine != null)
         {
             StopCoroutine(typingCoroutine);
@@ -79,36 +81,36 @@ public class NPCInteraction : MonoBehaviour
             return;
         }
 
-        currentSentenceIndex++; // Pindah ke kalimat berikutnya
+        currentSentenceIndex++;
 
         if (currentSentenceIndex < sentences.Length)
         {
-            // Ketik kalimat berikutnya
             typingCoroutine = StartCoroutine(TypeSentence(sentences[currentSentenceIndex]));
         }
         else
         {
-            EndDialog(); // Dialog habis
+            EndDialog();
         }
     }
 
-    void EndDialog()
+    public void EndDialog()
     {
         isTalking = false;
-        dialogPanel.SetActive(false);
-        interactionPanel.SetActive(true); // Munculkan lagi prompt "Press E" jika masih dekat
-
-        // [OPSIONAL] Beritahu script AI boleh jalan lagi
-        // GetComponent<NPCWanderAI>()?.SetTalkingState(false);
+        if (dialogPanel != null) dialogPanel.SetActive(false);
+        
+        // LOGIC FIX: Hanya nyalakan prompt jika player MASIH di dalam area
+        if (isPlayerInRange && interactionPanel != null) 
+        {
+            interactionPanel.SetActive(true);
+        }
     }
 
-    // --- Trigger Detection (Sama seperti sebelumnya) ---
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
         {
             isPlayerInRange = true;
-            if (!isTalking) interactionPanel.SetActive(true);
+            if (!isTalking && interactionPanel != null) interactionPanel.SetActive(true);
         }
     }
 
@@ -117,10 +119,13 @@ public class NPCInteraction : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             isPlayerInRange = false;
-            interactionPanel.SetActive(false);
-            EndDialog(); // Paksa berhenti jika player menjauh
+            if (interactionPanel != null) interactionPanel.SetActive(false); // Matikan paksa
+            EndDialog(); 
         }
     }
-    // Getter untuk script AI nanti
-    public bool IsTalking() { return isTalking; }
-}
+
+    public bool IsTalking() 
+    { 
+        return isTalking; 
+    }
+} // Kurung kurawal penutup class
